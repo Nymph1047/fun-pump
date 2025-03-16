@@ -21,6 +21,18 @@ describe("Factory", function () {
         return { factory,deployer,creator,token,buyer }
     }
 
+    async function buyTokenFixture() {
+        const {factory,token,creator,buyer} = await deployFactoryFixture();
+
+        const AMOUNT = ethers.parseUnits("10000", 18)
+        const COST = ethers.parseUnits("1", 18)
+
+        const transaction = await factory.connect(buyer).buy(await token.getAddress(), AMOUNT, { value: COST })
+        await transaction.wait()
+
+        return { factory,token,creator,buyer }
+    }
+
     describe("Deployment", function () {
         it("Should set the fee", async function () {
             const { factory } = await loadFixture(deployFactoryFixture)
@@ -57,6 +69,40 @@ describe("Factory", function () {
             expect(sale.sold).to.equal(0)
             expect(sale.raised).to.equal(0)
             expect(sale.isOpen).to.equal(true)
+          })
+    })
+
+    describe("Buying", function () {
+        const AMOUNT = ethers.parseUnits("10000", 18)
+        const COST = ethers.parseUnits("1", 18)
+
+        it("Should update ETH balance", async function () {
+            const { factory, token, buyer } = await loadFixture(buyTokenFixture)
+            
+            const balance = await ethers.provider.getBalance(await factory.getAddress())
+
+            expect(balance).to.equal(FEE + COST)
+        })
+
+        it("Should update token balance", async function () {
+            const { factory, token, buyer } = await loadFixture(buyTokenFixture)
+            expect(await token.balanceOf(buyer.address)).to.equal(AMOUNT)
+        })
+
+        it("Should update token sale", async function () {
+            const { factory, token } = await loadFixture(buyTokenFixture)
+            const sale = await factory.TokenToSale(await token.getAddress())
+            expect(sale.sold).to.equal(AMOUNT)
+            expect(sale.raised).to.equal(COST)
+            expect(sale.isOpen).to.equal(true)
+        })
+        it("Should increase base cost", async function () {
+            const { factory, token } = await loadFixture(buyTokenFixture)
+      
+            const sale = await factory.TokenToSale(await token.getAddress())
+            const cost = await factory.getCost(sale.sold)
+      
+            expect(cost).to.be.equal(ethers.parseUnits("0.0002"))
           })
     })
 })

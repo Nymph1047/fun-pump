@@ -3,6 +3,8 @@ pragma solidity 0.8.27;
 import './Token.sol';
 
 contract Factory {
+    uint256 public constant TARGET = 3 ether;
+    uint256 public constant TOKEN_LIMIT = 500_000 ether;
     uint256 public immutable fee;
     address public owner;
     address[] public tokens;
@@ -19,7 +21,9 @@ contract Factory {
         bool isOpen;
     }
 
-    event created(address indexed token);
+    event Created(address indexed token);
+    event Buy(address indexed token,uint256 amount);
+
     constructor(uint256 _fee) {
         fee = _fee;
         owner = msg.sender;
@@ -27,6 +31,15 @@ contract Factory {
 
     function getTokenSale(uint256 _index) public view returns (TokenSale memory) {
         return TokenToSale[tokens[_index]];
+    }
+
+    function getCost(uint256 _sold) public pure returns (uint256) {
+        uint256 floor = 0.0001 ether;
+        uint256 step = 0.0001 ether;
+        uint256 increment = 10000 ether;
+
+        uint256 cost = (step * (_sold / increment)) + floor;
+        return cost;
     }
 
     function create(
@@ -52,6 +65,33 @@ contract Factory {
 
         TokenToSale[address(token)] = sale;
 
-        emit created(address(token));
+        emit Created(address(token));
+    }
+
+    function buy(address _token, uint256 _amount) external payable {
+        TokenSale storage sale = TokenToSale[_token];
+
+
+        require(sale.isOpen == true, "Factory: Buying closed");
+        require(_amount >= 1 ether, "Factory: Amount too low");
+        require(_amount <= 10000 ether, "Factory: Amount exceeded");
+
+        uint256 cost = getCost(sale.sold);
+        uint256 price = cost * (_amount / 10 ** 18);
+
+        sale.sold += _amount;
+        sale.raised += price;
+
+        if (sale.sold >= TOKEN_LIMIT || sale.raised >= TARGET) {
+            sale.isOpen = false;
+        }
+
+        Token(_token).transfer(msg.sender, _amount);
+
+        emit Buy(_token, _amount);
+    }
+
+    function deposit(address _token) external {
+        require(msg.value > 0, "Factory: No value sent");
     }
 }
