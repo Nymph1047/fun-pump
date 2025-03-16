@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Nabla&display=swap');
+
 :root {
   --background: #1B1D29;
   --foreground: #ededed;
@@ -51,7 +53,7 @@ header {
 }
 
 header .brand {
-  font-family: "Nabla";
+  font-family: "Nabla", sans-serif;
   font-size: 2rem;
   transform: rotate(-5deg);
 }
@@ -60,7 +62,7 @@ header .brand {
 
 .btn--fancy,
 input[type="submit"] {
-  font-family: "Nabla";
+  font-family: "Nabla", sans-serif;
   font-size: 1.5rem;
 
   background: transparent;
