@@ -92,6 +92,20 @@ contract Factory {
     }
 
     function deposit(address _token) external {
-        require(msg.value > 0, "Factory: No value sent");
+        Token token = Token(_token);
+        TokenSale memory sale = TokenToSale[_token];
+
+        require(sale.isOpen == false, "Factory: Target not reached");
+        token.transfer(sale.creator, token.balanceOf(address(this)));
+
+        (bool success, ) = payable(sale.creator).call{value: sale.raised}("");
+        require(success, "Factory: ETH transfer failed");
+    }
+
+        function withdraw(uint256 _amount) external {
+        require(msg.sender == owner, "Factory: Not owner");
+
+        (bool success, ) = payable(owner).call{value: _amount}("");
+        require(success, "Factory: ETH transfer failed");
     }
 }
