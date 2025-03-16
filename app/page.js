@@ -19,7 +19,11 @@ export default function Home() {
   const [account, setAccount] = useState(null)
   const [factory, setFactory] = useState(null)
   const [fee, setFee] = useState(0)
+  const [tokens, setTokens] = useState([])
+  const [token, setToken] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showTrade, setShowTrade] = useState(false)
+
 
   async function loadBlockchainData() {
     const provider = new ethers.BrowserProvider(window.ethereum)
@@ -32,7 +36,43 @@ export default function Home() {
   
     const fee = await factory.fee()
     setFee(fee)
+
+    const totalTokens = await factory.totalTokens()
+    const tokens = []
+
+    // We'll get the first 6 tokens listed
+    for (let i = 0; i < totalTokens; i++) {
+      if (i == 6) {
+        break
+      }
+
+      const tokenSale = await factory.getTokenSale(i)
+
+      // We create our own object to store extra fields
+      // like images
+      const token = {
+        token: tokenSale.token,
+        name: tokenSale.name,
+        creator: tokenSale.creator,
+        sold: tokenSale.sold,
+        raised: tokenSale.raised,
+        isOpen: tokenSale.isOpen,
+        image: images[i]
+      }
+
+      tokens.push(token)
+    }
+
+    // We reverse the array so we can get the most
+    // recent token listed to display first
+    setTokens(tokens.reverse())
   }
+
+  function toggleTrade(token) {
+    setToken(token)
+    showTrade ? setShowTrade(false) : setShowTrade(true)
+  }
+
   function toggleCreate() {
     showCreate ? setShowCreate(false) : setShowCreate(true)
   }
@@ -55,11 +95,38 @@ export default function Home() {
             )}
           </button>
         </div>
-      </main>
 
-      {showCreate && (
+        <div className="listings">
+          <h1>new listings</h1>
+
+          <div className="tokens">
+            {!account ? (
+              <p>please connect wallet</p>
+            ) : tokens.length === 0 ? (
+              <p>No tokens listed</p>
+            ) : (
+              tokens.map((token, index) => (
+                <Token
+                  toggleTrade={toggleTrade}
+                  token={token}
+                  key={index}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+
+        {showCreate && (
         <List toggleCreate={toggleCreate} fee={fee} provider={provider} factory={factory}/>
       )}
+
+         {showTrade && (
+          <Trade toggleTrade={toggleTrade} token={token} provider={provider} factory={factory} />
+        )}
+
+      </main>
+
     </div>
   );
 }
