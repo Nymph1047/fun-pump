@@ -6,7 +6,7 @@ function Header({ account, setAccount }) {
     const account = ethers.getAddress(accounts[0])
     setAccount(account);
   }
-
+// test
   return (
     <header>
       <p className="brand">fun.pump</p>
