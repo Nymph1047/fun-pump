@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
 import { ethers } from "ethers"
 
-function Trade({ toggleTrade, token, provider, factory }) {
-  const [target, setTarget] = useState(0)
-  const [limit, setLimit] = useState(0)
+function Trade({ toggleTrade, token, provider, factory,loadBlockchainData }) {
+  // const [target, setTarget] = useState(0)
+  // const [limit, setLimit] = useState(0)
   const [cost, setCost] = useState(0)
-
+  const progress = (token.raised * 100n / token.target).toString()
   async function buyHandler(form) {
     const amount = form.get("amount")
 
@@ -20,16 +20,15 @@ function Trade({ toggleTrade, token, provider, factory }) {
       { value: totalCost }
     )
     await transaction.wait()
-
     toggleTrade()
   }
 
   async function getSaleDetails() {
-    const target = await factory.TARGET()
-    setTarget(target)
+    // const target = await factory.TARGET()
+    // setTarget(target)
 
-    const limit = await factory.TOKEN_LIMIT()
-    setLimit(limit)
+    // const limit = await factory.TOKEN_LIMIT()
+    // setLimit(limit)
 
     const cost = await factory.getCost(token.sold)
     setCost(cost)
@@ -37,7 +36,7 @@ function Trade({ toggleTrade, token, provider, factory }) {
 
   useEffect(() => {
     getSaleDetails()
-  }, [])
+  }, []) 
 
   return (
     <div className="trade">
@@ -49,9 +48,13 @@ function Trade({ toggleTrade, token, provider, factory }) {
         <img src={token.image} alt="Pepe" width={256} height={256} />
         <p>marketcap: {ethers.formatUnits(token.raised, 18)} ETH</p>
         <p>base cost: {ethers.formatUnits(cost, 18)} ETH</p>
-      </div>
+        <p>limit:{ethers.formatUnits(token.limit, 18)} tokens</p>
+        <p>target:{ethers.formatUnits(token.target, 18)} ETH</p>
+        {/* <p>remaining: {ethers.formatUnits(token.limit - token.sold, 18)} tokens</p> */}
+       </div>
+       {/* <p className="disclaimer">🔥 {ethers.formatUnits(token.raised, 18)} ETH 已筹集，赶紧参与！</p> */}
 
-      {token.sold >= limit || token.raised >= target ? (
+      {token.sold >= token.limit || token.raised >= token.target ? (
         <p className="disclaimer">target reached!</p>
       ) : (
         <form action={buyHandler}>

@@ -235,7 +235,7 @@ main .listings h1 {
 /* TRADE TOKENS */
 .trade {
   width: 100vw;
-  height: 100vh;
+  height: 100vh; 
   background-color: rgba(0, 0, 0, 0.9);
 
   position: fixed;
@@ -246,7 +246,7 @@ main .listings h1 {
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding-top: 3em;
+  padding-top: 3em; 
 }
 
 .trade p {

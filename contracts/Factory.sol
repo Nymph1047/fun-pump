@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.27;
 import './Token.sol';
+// ReentranceGuard
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract Factory {
+
+contract Factory is ReentrancyGuard{
     // uint256 public constant TARGET = 3 ether;
-    uint256 public constant TOKEN_LIMIT = 500_000 ether;
+    // uint256 public constant TOKEN_LIMIT = 500_000 ether;
     uint256 public immutable fee;
     address public owner;
     address[] public tokens;
@@ -28,11 +31,16 @@ contract Factory {
         uint256 deadline;
         bool isRefundable;
         uint256 target;
+        uint256 limit;
     }
 
     event Created(address indexed token);
     event Buy(address indexed token,uint256 amount);
     event Refunded(address indexed token, address indexed user, uint256 amount);
+    event Deposited(address indexed token, uint256 amount);
+    event Withdrawn(address indexed by, uint256 amount);
+    event ForceClosed(address indexed token, address indexed by);
+
 
     modifier onlyAdminOrCreator(address _token) {
     require(msg.sender == owner || msg.sender == TokenToSale[_token].creator, "Not authorized");
@@ -65,10 +73,15 @@ contract Factory {
         string memory _name,
         string memory _symbol,
         uint256 _target,
-        uint256 _durationInSeconds
+        uint256 _durationInSeconds,
+        uint256 _limit
     ) external payable {
 
         require(msg.value >= fee, "Factory: Creator fee not met");
+        require(_target > 0, "Factory: Target must be > 0");
+        require(_limit > 0, "Factory: Limit must be > 0");
+        require(_durationInSeconds > 0, "Factory: Duration must be > 0");
+
 
         // Create a new contract
         Token token = new Token(msg.sender, _name, _symbol, 1_000_000 ether);
@@ -84,7 +97,8 @@ contract Factory {
             true,
             block.timestamp + _durationInSeconds,
             false,
-            _target
+            _target,
+            _limit
         );
 
         TokenToSale[address(token)] = sale;
@@ -92,7 +106,7 @@ contract Factory {
         emit Created(address(token));
     }
 
-    function buy(address _token, uint256 _amount) external payable {
+    function buy(address _token, uint256 _amount) external payable nonReentrant {
         TokenSale storage sale = TokenToSale[_token];
 
 
@@ -101,26 +115,29 @@ contract Factory {
         require(_amount <= 10000 ether, "Factory: Amount exceeded");
 
         uint256 cost = getCost(sale.sold);
-        uint256 price = cost * (_amount / 10 ** 18);
+        uint256 tokensToBuy = _amount / 1 ether;
+        require(tokensToBuy > 0, "Factory: Amount too small");
+
+         uint256 price = cost * tokensToBuy;
         require(msg.value >= price, "Factory: Insufficient ETH sent");
 
         uint256 needToRefund = msg.value - price;
-
         if (needToRefund > 0) {
-            payable(msg.sender).transfer(needToRefund);
-       }
+            (bool success, ) = payable(msg.sender).call{value: needToRefund}("");
+            require(success, "Factory: refund failed");
+        }
 
         if (!isContributor[_token][msg.sender]) {
             contributors[_token].push(msg.sender);
             isContributor[_token][msg.sender] = true;
        }
-        // add the contribution to the user
+       
          contributions[_token][msg.sender] += price;
 
         sale.sold += _amount;
         sale.raised += price;
 
-        if (sale.sold >= TOKEN_LIMIT || sale.raised >= sale.target) {
+        if (sale.sold >= sale.limit || sale.raised >= sale.target) {
             sale.isOpen = false;
         }
 
@@ -129,7 +146,7 @@ contract Factory {
         emit Buy(_token, _amount);
     }
 
-    function deposit(address _token) external {
+    function deposit(address _token) external nonReentrant {
         Token token = Token(_token);
         TokenSale storage sale = TokenToSale[_token];
 
@@ -138,13 +155,17 @@ contract Factory {
 
         (bool success, ) = payable(sale.creator).call{value: sale.raised}("");
         require(success, "Factory: ETH transfer failed");
+
+        emit Deposited(_token, sale.raised);
     }
 
-    function withdraw(uint256 _amount) external {
+    function withdraw(uint256 _amount) external nonReentrant {
         require(msg.sender == owner, "Factory: Not owner");
 
         (bool success, ) = payable(owner).call{value: _amount}("");
         require(success, "Factory: ETH transfer failed");
+
+        emit Withdrawn(msg.sender, _amount);
     }
 
     function checkAndClose(address _token) external {
@@ -158,7 +179,7 @@ contract Factory {
 
         }
     }
-    function refund(address _token) external returns (uint256) {
+    function refund(address _token) external nonReentrant returns (uint256)  {
         TokenSale storage sale = TokenToSale[_token];
         // must be closed and target not reached
         require(sale.isOpen == false, "Factory: Not closed");
@@ -184,9 +205,11 @@ contract Factory {
 
         if (sale.raised < sale.target) { sale.isRefundable = true; }
         sale.isOpen = false;
+
+        emit ForceClosed(_token, msg.sender);
     }
 
-    function batchRefund(address _token, uint256 start, uint256 end) external {
+    function batchRefund(address _token, uint256 start, uint256 end) external nonReentrant{
     TokenSale storage sale = TokenToSale[_token];
     address[] storage userList = contributors[_token];
     require(!sale.isOpen && sale.isRefundable, "Factory: Not refundable");
@@ -213,4 +236,10 @@ contract Factory {
     return contributors[_token].length;
     }
 
+    function getAllTokens() external view returns (address[] memory) {
+    return tokens;
+    }
+
+    receive() external payable {}
+    fallback() external payable {}
 }

@@ -45,8 +45,10 @@ export default function Home() {
       if (i == 6) {
         break
       }
+      const tokenAddress = await factory.tokens(i)
 
-      const tokenSale = await factory.getTokenSale(i)
+      // 2. 获取 token 的 sale 信息
+      const tokenSale = await factory.getTokenSaleByAddress(tokenAddress)
 
       // We create our own object to store extra fields
       // like images
@@ -57,6 +59,10 @@ export default function Home() {
         sold: tokenSale.sold,
         raised: tokenSale.raised,
         isOpen: tokenSale.isOpen,
+        deadline: tokenSale.deadline,
+        target: tokenSale.target,
+        limit: tokenSale.limit,
+        duration: tokenSale.duration,
         image: images[i]
       }
 
@@ -118,11 +124,11 @@ export default function Home() {
 
 
         {showCreate && (
-        <List toggleCreate={toggleCreate} fee={fee} provider={provider} factory={factory}/>
+        <List toggleCreate={toggleCreate} fee={fee} provider={provider} factory={factory} loadBlockchainData={loadBlockchainData}/>
       )}
 
          {showTrade && (
-          <Trade toggleTrade={toggleTrade} token={token} provider={provider} factory={factory} />
+          <Trade toggleTrade={toggleTrade} token={token} provider={provider} factory={factory} loadBlockchainData={loadBlockchainData} />
         )}
 
       </main>
